@@ -1,6 +1,8 @@
 import argparse
 import copy
 import torch
+import os
+import json
 
 from dassl.utils import setup_logger, set_random_seed, collect_env_info
 from dassl.config import get_cfg_default
@@ -66,6 +68,10 @@ def setup_cfg(args):
     cfg.freeze()
     return cfg
 
+def save_result(output_dir, accuracy):
+    save_path = os.path.join(output_dir, 'results.jsonl')
+    with open(save_path, 'a') as f:
+        f.write(json.dumps({"accuracy": accuracy}, sort_keys=True) + "\n")
 
 def main(args):
     cfg = setup_cfg(args)
@@ -84,13 +90,19 @@ def main(args):
     trainer = build_trainer(cfg)
  
     # Dassl.pytorch/dassl/engine/trainer.py
+
     if args.eval_only:
         trainer.load_model(args.model_dir, epoch=args.load_epoch)
-        trainer.test()
+        accuracy = trainer.test()
+        save_result(args.output_dir, accuracy)
         return
 
     if not args.no_train:
         trainer.train()
+        accuracy = trainer.test()
+        save_result(args.output_dir, accuracy)
+        return
+
 
 
 if __name__ == '__main__':
@@ -154,6 +166,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--load-epoch',
         type=int,
+        default=150,
         help='load model weights at this epoch for evaluation'
     )
     parser.add_argument(
